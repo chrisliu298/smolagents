@@ -1269,6 +1269,13 @@ class ToolCallingAgent(MultiStepAgent):
 
         input_messages = memory_messages.copy()
 
+        # Inject step information
+        step_info = f"[Step {memory_step.step_number}/{self.max_steps}]"
+        input_messages.insert(1, ChatMessage(
+            role=MessageRole.SYSTEM,
+            content=[{"type": "text", "text": step_info}]
+        ))
+
         # Add new step in logs
         memory_step.model_input_messages = input_messages
 
@@ -1631,6 +1638,14 @@ class CodeAgent(MultiStepAgent):
         memory_messages = self.write_memory_to_messages()
 
         input_messages = memory_messages.copy()
+
+        # Inject step information
+        step_info = f"[Step {memory_step.step_number}/{self.max_steps}]"
+        input_messages.insert(1, ChatMessage(
+            role=MessageRole.SYSTEM,
+            content=[{"type": "text", "text": step_info}]
+        ))
+
         ### Generate model output ###
         memory_step.model_input_messages = input_messages
         stop_sequences = ["Observation:", "Calling tools:"]
