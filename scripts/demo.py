@@ -3,7 +3,14 @@ import argparse
 import os
 
 from dotenv import load_dotenv
-from smolagents import ApiWebSearchTool, OpenAIModel, ToolCallingAgent, VisitWebpageTool
+from smolagents import (
+    OpenAIModel,
+    ToolCallingAgent,
+    AsyncWebSearchTool,
+    AsyncVisitWebpageTool,
+    AsyncPythonInterpreterTool,
+    AsyncBashTool,
+)
 
 from utils import sanitize_trajectory, save_trajectory
 
@@ -37,8 +44,8 @@ def main():
     parser.add_argument(
         "-t", "--temperature",
         type=float,
-        default=1.0,
-        help="Sampling temperature. Default: 1.0",
+        default=0.6,
+        help="Sampling temperature. Default: 0.6",
     )
     parser.add_argument(
         "-p", "--top-p",
@@ -49,8 +56,8 @@ def main():
     parser.add_argument(
         "-k", "--top-k",
         type=int,
-        default=40,
-        help="Top-k sampling (passed via extra_body for OpenRouter). Default: 40",
+        default=20,
+        help="Top-k sampling (passed via extra_body for OpenRouter). Default: 20",
     )
     args = parser.parse_args()
 
@@ -60,8 +67,10 @@ def main():
         with open(args.system_prompt, "r") as f:
             custom_instructions = f.read().strip()
 
-    search_tool = ApiWebSearchTool(rate_limit=1.0)
-    browse_tool = VisitWebpageTool(max_output_length=40000)
+    search_tool = AsyncWebSearchTool(rate_limit=1.0)
+    browse_tool = AsyncVisitWebpageTool(max_output_length=40000)
+    python_tool = AsyncPythonInterpreterTool()
+    bash_tool = AsyncBashTool(timeout=30)
 
     model = OpenAIModel(
         model_id=args.model,
@@ -74,7 +83,7 @@ def main():
     )
 
     agent = ToolCallingAgent(
-        tools=[search_tool, browse_tool],
+        tools=[search_tool, browse_tool, python_tool, bash_tool],
         model=model,
         max_steps=args.max_steps,
         instructions=custom_instructions,
