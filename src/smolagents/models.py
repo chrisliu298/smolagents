@@ -356,6 +356,13 @@ def get_clean_message_list(
 
         if role in role_conversions:
             message.role = role_conversions[role]  # type: ignore
+
+        # Normalize content to list format if it's a string
+        if isinstance(message.content, str):
+            message.content = [{"type": "text", "text": message.content}]
+        elif message.content is None:
+            message.content = []
+
         # encode images if needed
         if isinstance(message.content, list):
             for element in message.content:
@@ -388,12 +395,51 @@ def get_clean_message_list(
                 content = message.content[0]["text"]
             else:
                 content = message.content
-            output_message_list.append(
-                {
-                    "role": message.role,
-                    "content": content,
-                }
-            )
+
+            message_dict = {
+                "role": message.role,
+                "content": content,
+            }
+
+            # Include tool_calls if present (for assistant messages)
+            if message.tool_calls is not None:
+                # Convert ChatMessageToolCall objects to dicts
+                tool_calls_dicts = []
+                for tc in message.tool_calls:
+                    tool_calls_dicts.append({
+                        "id": tc.id,
+                        "type": tc.type,
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments if isinstance(tc.function.arguments, str) else json.dumps(tc.function.arguments)
+                        }
+                    })
+                message_dict["tool_calls"] = tool_calls_dicts
+
+            # Include reasoning_details if present (for MiniMax models)
+            # Extract from raw response if available
+            if hasattr(message, 'raw') and message.raw is not None:
+                raw = message.raw
+                # Handle both Pydantic object and dict formats
+                if hasattr(raw, 'choices'):
+                    # Pydantic object
+                    if len(raw.choices) > 0:
+                        raw_message = raw.choices[0].message
+                        if hasattr(raw_message, 'reasoning_details') and raw_message.reasoning_details is not None:
+                            # Serialize reasoning_details to ensure it's API-compatible
+                            if hasattr(raw_message, 'model_dump'):
+                                reasoning_details = raw_message.model_dump().get('reasoning_details')
+                            else:
+                                reasoning_details = raw_message.reasoning_details
+                            message_dict["reasoning_details"] = reasoning_details
+                elif isinstance(raw, dict) and 'choices' in raw:
+                    # Dict format (after serialization)
+                    if len(raw['choices']) > 0:
+                        raw_message = raw['choices'][0].get('message', {})
+                        if raw_message.get('reasoning_details') is not None:
+                            message_dict["reasoning_details"] = raw_message['reasoning_details']
+
+            output_message_list.append(message_dict)
     return output_message_list
 
 

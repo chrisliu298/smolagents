@@ -140,6 +140,10 @@ def make_json_serializable(obj: Any) -> Any:
         return [make_json_serializable(item) for item in obj]
     elif isinstance(obj, dict):
         return {str(k): make_json_serializable(v) for k, v in obj.items()}
+    elif hasattr(obj, "model_dump") and callable(obj.model_dump):
+        # For Pydantic models, use model_dump() to get all fields including computed/excluded ones
+        dumped = obj.model_dump()
+        return {"_type": obj.__class__.__name__, **{k: make_json_serializable(v) for k, v in dumped.items()}}
     elif hasattr(obj, "__dict__"):
         # For custom objects, convert their __dict__ to a serializable format
         return {"_type": obj.__class__.__name__, **{k: make_json_serializable(v) for k, v in obj.__dict__.items()}}
