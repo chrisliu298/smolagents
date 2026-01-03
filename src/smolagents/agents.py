@@ -1269,13 +1269,6 @@ class ToolCallingAgent(MultiStepAgent):
 
         input_messages = memory_messages.copy()
 
-        # Inject step information
-        step_info = f"[Step {memory_step.step_number}/{self.max_steps}]"
-        input_messages.insert(1, ChatMessage(
-            role=MessageRole.SYSTEM,
-            content=[{"type": "text", "text": step_info}]
-        ))
-
         # Add new step in logs
         memory_step.model_input_messages = input_messages
 
@@ -1431,6 +1424,9 @@ class ToolCallingAgent(MultiStepAgent):
         memory_step.observations = (
             memory_step.observations.rstrip("\n") if memory_step.observations else memory_step.observations
         )
+        # Prepend step info to observations for trajectory capture
+        step_info = f"[Step {memory_step.step_number}/{self.max_steps}]"
+        memory_step.observations = f"{step_info}\n{memory_step.observations}"
 
     def _substitute_state_variables(self, arguments: dict[str, str] | str) -> dict[str, Any] | str:
         """Replace string values in arguments with their corresponding state values if they exist."""
@@ -1639,13 +1635,6 @@ class CodeAgent(MultiStepAgent):
 
         input_messages = memory_messages.copy()
 
-        # Inject step information
-        step_info = f"[Step {memory_step.step_number}/{self.max_steps}]"
-        input_messages.insert(1, ChatMessage(
-            role=MessageRole.SYSTEM,
-            content=[{"type": "text", "text": step_info}]
-        ))
-
         ### Generate model output ###
         memory_step.model_input_messages = input_messages
         stop_sequences = ["Observation:", "Calling tools:"]
@@ -1752,6 +1741,9 @@ class CodeAgent(MultiStepAgent):
         truncated_output = truncate_content(str(code_output.output))
         observation += "Last output from code snippet:\n" + truncated_output
         memory_step.observations = observation
+        # Prepend step info to observations for trajectory capture
+        step_info = f"[Step {memory_step.step_number}/{self.max_steps}]"
+        memory_step.observations = f"{step_info}\n{memory_step.observations}"
 
         if not code_output.is_final_answer:
             execution_outputs_console += [
